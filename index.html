@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helicopter Conceptual Design Tool (PyScript)</title>
+    
+    <!-- PyScript setup -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary: #005b96;
+            --secondary: #03396c;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #dddddd;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        h2 {
+            margin-top: 0;
+            color: var(--secondary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: var(--secondary);
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .result-card {
+            background-color: #f9fbfa;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .result-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: var(--primary);
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        .data-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .data-value {
+            font-weight: bold;
+        }
+        #server-warning {
+            display: none;
+            background-color: #ffe0e0;
+            color: #d8000c;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #d8000c;
+            max-width: 800px;
+            text-align: left;
+        }
+        #loading-indicator {
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Helicopter Conceptual Design Tool</h1>
+        <p style="color: var(--text-muted);">Configure sizing parameters to calculate rotor, weight, and performance metrics.</p>
+        <div id="loading-indicator">⏳ Loading PyScript environment... Please wait.</div>
+        <div id="server-warning">
+            <strong>Warning:</strong> You have opened this file using the <code>file://</code> protocol. 
+            Because this app relies on local Python files, it must be served using a local web server due to browser security restrictions. <br><br>
+            To fix this, open your terminal in this folder and run:<br>
+            <code>python -m http.server</code><br>
+            Then open <a href="http://localhost:8000/index_pyscript.html">http://localhost:8000/index_pyscript.html</a> in your browser.
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- INPUT PANEL -->
+        <div class="panel" style="flex: 0 0 300px;">
+            <h2>Input Parameters</h2>
+            <form id="heliForm">
+                <div class="form-group">
+                    <label for="inputType">Sizing Methodology</label>
+                    <select id="inputType" name="inputType">
+                        <option value="mass">By Mass (kg)</option>
+                        <option value="passengers">By Passengers</option>
+                        <option value="radius">By Main Rotor Radius (m)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="inputValue">Primary Value</label>
+                    <input type="number" id="inputValue" name="inputValue" value="6000" step="any" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="mainBlades">Main Rotor Blades</label>
+                    <input type="number" id="mainBlades" name="mainBlades" value="4" min="2" max="8">
+                </div>
+
+                <div class="form-group">
+                    <label for="tailBlades">Tail Rotor Blades</label>
+                    <input type="number" id="tailBlades" name="tailBlades" value="4" min="2" max="8">
+                </div>
+
+                <div class="form-group">
+                    <label for="rho">Air Density &rho; (kg/m&sup3;)</label>
+                    <input type="number" id="rho" name="rho" value="1.225" step="0.001">
+                </div>
+
+                <div class="form-group">
+                    <label for="cd0">Zero-Lift Drag (Cd0)</label>
+                    <input type="number" id="cd0" name="cd0" value="0.011" step="0.001">
+                </div>
+
+                <div class="form-group">
+                    <label for="sfc">Specific Fuel Cons. (kg/W-s)</label>
+                    <input type="number" id="sfc" name="sfc" value="1.8e-7" step="any">
+                </div>
+
+                <div class="form-group">
+                    <label for="fuelFraction">Fuel Fraction</label>
+                    <input type="number" id="fuelFraction" name="fuelFraction" value="0.3" step="0.01" min="0" max="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="vCruise">Cruise Velocity (m/s)</label>
+                    <input type="number" id="vCruise" name="vCruise" value="60" step="1" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="vMax">Maximum Velocity (m/s)</label>
+                    <input type="number" id="vMax" name="vMax" value="80" step="1" min="0">
+                </div>
+
+                <button type="button" id="calc-btn" py-click="calculate_design" disabled>Calculate Design</button>
+            </form>
+        </div>
+
+        <!-- OUTPUT PANEL -->
+        <div class="panel">
+            <h2>Analysis Results</h2>
+            <div class="results-grid">
+                
+                <!-- General & Performance Card -->
+                <div class="result-card">
+                    <h3>General & Performance</h3>
+                    <div class="data-row"><span class="data-label">Gross Mass:</span> <span class="data-value" id="out-mass">6000 kg</span></div>
+                    <div class="data-row"><span class="data-label">Passengers:</span> <span class="data-value" id="out-passengers">16</span></div>
+                    <div class="data-row"><span class="data-label">Max Power Required:</span> <span class="data-value" id="out-power">--- kW</span></div>
+                    <div class="data-row"><span class="data-label" style="padding-left: 15px; font-size: 0.85em;">├─ Induced:</span> <span class="data-value" id="out-power-induced">--- kW</span></div>
+                    <div class="data-row"><span class="data-label" style="padding-left: 15px; font-size: 0.85em;">├─ Profile:</span> <span class="data-value" id="out-power-profile">--- kW</span></div>
+                    <div class="data-row"><span class="data-label" style="padding-left: 15px; font-size: 0.85em;">├─ Parasite:</span> <span class="data-value" id="out-power-parasite">--- kW</span></div>
+                    <div class="data-row"><span class="data-label">Optimum Speed:</span> <span class="data-value" id="out-speed">--- m/s</span></div>
+                    <div class="data-row"><span class="data-label">Max Range:</span> <span class="data-value" id="out-max-range">--- km</span></div>
+                    <div class="data-row"><span class="data-label">Max Endurance:</span> <span class="data-value" id="out-max-endurance">--- hours</span></div>
+                </div>
+
+                <!-- Dimensions Card -->
+                <div class="result-card">
+                    <h3>Fuselage Dimensions</h3>
+                    <div class="data-row"><span class="data-label">Length:</span> <span class="data-value" id="out-dim-length">--- m</span></div>
+                    <div class="data-row"><span class="data-label">Width:</span> <span class="data-value" id="out-dim-width">--- m</span></div>
+                    <div class="data-row"><span class="data-label">Height:</span> <span class="data-value" id="out-dim-height">--- m</span></div>
+                    <div class="data-row"><span class="data-label">Tip-to-Tip Length:</span> <span class="data-value" id="out-dim-tiptotip">--- m</span></div>
+                </div>
+
+                <!-- Main Rotor Card -->
+                <div class="result-card">
+                    <h3>Main Rotor</h3>
+                    <div class="data-row"><span class="data-label">Radius:</span> <span class="data-value" id="out-mr-radius">7.12 m</span></div>
+                    <div class="data-row"><span class="data-label">Area:</span> <span class="data-value" id="out-mr-area">159.3 m&sup2;</span></div>
+                    <div class="data-row"><span class="data-label">Disk Loading:</span> <span class="data-value" id="out-mr-dl">--- N/m&sup2;</span></div>
+                    <div class="data-row"><span class="data-label">Chord:</span> <span class="data-value" id="out-mr-chord">0.44 m</span></div>
+                    <div class="data-row"><span class="data-label">Solidity:</span> <span class="data-value" id="out-mr-solidity">0.078</span></div>
+                </div>
+
+                <!-- Tail Rotor Card -->
+                <div class="result-card">
+                    <h3>Tail Rotor</h3>
+                    <div class="data-row"><span class="data-label">Radius:</span> <span class="data-value" id="out-tr-radius">1.35 m</span></div>
+                    <div class="data-row"><span class="data-label">Area:</span> <span class="data-value" id="out-tr-area">5.75 m&sup2;</span></div>
+                    <div class="data-row"><span class="data-label">Disk Loading:</span> <span class="data-value" id="out-tr-dl">10238 N/m&sup2;</span></div>
+                    <div class="data-row"><span class="data-label">Chord:</span> <span class="data-value" id="out-tr-chord">0.17 m</span></div>
+                    <div class="data-row"><span class="data-label">Solidity:</span> <span class="data-value" id="out-tr-solidity">0.165</span></div>
+                </div>
+
+                <!-- Weights Card -->
+                <div class="result-card">
+                    <h3>Empirical Empty Weights</h3>
+                    <div class="data-row"><span class="data-label">Main Rotor:</span> <span class="data-value" id="out-w-mr">440 kg</span></div>
+                    <div class="data-row"><span class="data-label">Engine Mass:</span> <span class="data-value" id="out-w-engine">--- kg</span></div>
+                    <div class="data-row"><span class="data-label">Drive System:</span> <span class="data-value" id="out-w-drive">--- kg</span></div>
+                    <div class="data-row"><span class="data-label">Total Empty Mass:</span> <span class="data-value" id="out-w-empty">115.35 kg</span></div>
+                </div>
+
+            </div>
+            
+            <!-- Chart Placeholder (Optional) -->
+            <div style="margin-top: 20px; padding: 20px; background: #eaeaea; border-radius: 6px; text-align: center; color: #888;">
+                <p id="chart-placeholder-text"><em>[ Generate a design to view performance charts ]</em></p>
+                <img id="chart-range" src="" alt="Range vs Velocity Chart" style="max-width: 100%; height: auto; display: none; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <img id="chart-power" src="" alt="Power vs Velocity Chart" style="max-width: 100%; height: auto; display: none; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            </div>
+        </div>
+    </div>
+
+    <!-- Check protocol and show warning if needed -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.getElementById('server-warning').style.display = 'block';
+        }
+
+        // Simple script to update input label based on selection
+        document.getElementById('inputType').addEventListener('change', function(e) {
+            const label = document.querySelector('label[for="inputValue"]');
+            const input = document.getElementById('inputValue');
+            
+            if (e.target.value === 'mass') {
+                label.textContent = 'Mass (kg)';
+                input.value = 6000;
+            } else if (e.target.value === 'passengers') {
+                label.textContent = 'Number of Passengers';
+                input.value = 16;
+            } else if (e.target.value === 'radius') {
+                label.textContent = 'Main Rotor Radius (m)';
+                input.value = 7.12;
+            }
+        });
+    </script>
+
+    <!-- Configure PyScript to load numpy, matplotlib, and our local helicopter python file -->
+    <py-config>
+        packages = ["numpy", "matplotlib"]
+        
+        [files]
+        "Conventional_Helicopter_design_with_power_v9.py" = "./Conventional_Helicopter_design_with_power_v9.py"
+    </py-config>
+
+    <!-- The actual Python code running inside PyScript -->
+    <script type="py">
+        import numpy as np
+        import matplotlib
+        matplotlib.use('Agg')
+        from Conventional_Helicopter_design_with_power_v9 import HelicopterSweep
+        from pyscript import document
+
+        # Called once environment is loaded
+        def on_load():
+            # Hide loading text
+            document.getElementById('loading-indicator').style.display = 'none'
+            # Enable calculate button
+            document.getElementById('calc-btn').disabled = False
+
+        def calculate_design(event):
+            try:
+                # Get values from DOM
+                input_type = document.getElementById('inputType').value
+                input_value = float(document.getElementById('inputValue').value)
+                main_blades = int(document.getElementById('mainBlades').value)
+                tail_blades = int(document.getElementById('tailBlades').value)
+                rho = float(document.getElementById('rho').value)
+                cd0 = float(document.getElementById('cd0').value)
+                sfc = float(document.getElementById('sfc').value)
+                fuel_fraction = float(document.getElementById('fuelFraction').value)
+                v_cruise = float(document.getElementById('vCruise').value)
+                v_max = float(document.getElementById('vMax').value)
+                
+                # Build kwargs
+                kwargs = {'main_blades': main_blades, 'tail_blades': tail_blades}
+                if input_type == 'mass':
+                    kwargs['m'] = input_value
+                elif input_type == 'passengers':
+                    kwargs['passengers'] = input_value
+                elif input_type == 'radius':
+                    kwargs['R'] = input_value
+                    
+                sweep = HelicopterSweep(**kwargs)
+                sweep.compute_power_required(rho=rho, Cd0=cd0, V_cruise=v_cruise, V_max=v_max)
+                sweep.compute_empirical_weights()
+                sweep.compute_optimum_speed(rho=rho, Cd0=cd0)
+                
+                V_range = np.linspace(0, 100, 50)
+                sweep.compute_range(V_range, SFC=sfc, fuel_fraction=fuel_fraction, rho=rho, Cd0=cd0)
+                
+                res = sweep.results[0]
+                max_range = max(res.get("Range", {}).get("Range_km", [0]))
+                max_endurance = max(res.get("Range", {}).get("Endurance_hours", [0]))
+                
+                # Update DOM
+                document.getElementById('out-mass').textContent = f"{res['mass']:.1f} kg"
+                document.getElementById('out-passengers').textContent = f"{res['passengers']}"
+                document.getElementById('out-power').textContent = f"{res['Power']['Total']/1000:.1f} kW"
+                document.getElementById('out-power-induced').textContent = f"{res['Power']['Induced']/1000:.1f} kW"
+                document.getElementById('out-power-profile').textContent = f"{res['Power']['Profile']/1000:.1f} kW"
+                document.getElementById('out-power-parasite').textContent = f"{res['Power']['Parasite']/1000:.1f} kW"
+                document.getElementById('out-speed').textContent = f"{res.get('V_opt', 0):.1f} m/s"
+                document.getElementById('out-max-range').textContent = f"{max_range:.1f} km"
+                document.getElementById('out-max-endurance').textContent = f"{max_endurance:.1f} hours"
+                
+                document.getElementById('out-dim-length').textContent = f"{res['dimensions']['length']:.2f} m"
+                document.getElementById('out-dim-width').textContent = f"{res['dimensions']['width']:.2f} m"
+                document.getElementById('out-dim-height').textContent = f"{res['dimensions']['height']:.2f} m"
+                document.getElementById('out-dim-tiptotip').textContent = f"{res['dimensions']['tip_to_tip']:.2f} m"
+                
+                document.getElementById('out-mr-radius').textContent = f"{res['MRotor']['radius']:.2f} m"
+                document.getElementById('out-mr-area').textContent = f"{res['MRotor']['area']:.2f} m²"
+                mr_dl = res['MRotor'].get('DL', res['mass']*9.81/res['MRotor']['area'])
+                document.getElementById('out-mr-dl').textContent = f"{mr_dl:.1f} N/m²"
+                document.getElementById('out-mr-chord').textContent = f"{res['MRotor']['chord']:.2f} m"
+                document.getElementById('out-mr-solidity').textContent = f"{res['MRotor']['solidity']:.3f}"
+                
+                document.getElementById('out-tr-radius').textContent = f"{res['TRotor']['radius']:.2f} m"
+                document.getElementById('out-tr-area').textContent = f"{res['TRotor']['area']:.2f} m²"
+                tr_dl = res['TRotor'].get('TDL', res['mass']*9.81/res['TRotor']['area'])
+                document.getElementById('out-tr-dl').textContent = f"{tr_dl:.1f} N/m²"
+                document.getElementById('out-tr-chord').textContent = f"{res['TRotor']['chord']:.2f} m"
+                document.getElementById('out-tr-solidity').textContent = f"{res['TRotor']['solidity']:.3f}"
+                
+                document.getElementById('out-w-mr').textContent = f"{res['Weights_empirical']['MainRotor']:.1f} kg"
+                document.getElementById('out-w-engine').textContent = f"{res['Weights_empirical']['Engine']:.1f} kg"
+                document.getElementById('out-w-drive').textContent = f"{res['Weights_empirical']['Drive_system']:.1f} kg"
+                document.getElementById('out-w-empty').textContent = f"{res['Weights_empirical']['Total']:.1f} kg"
+                
+                chart_range_b64 = sweep.plot_range_vs_velocity(return_base64=True)
+                chart_power_b64 = sweep.plot_power_vs_velocity(V_range, rho=rho, Cd0=cd0, return_base64=True)
+                
+                if chart_range_b64:
+                    img_range = document.getElementById('chart-range')
+                    img_range.src = 'data:image/png;base64,' + chart_range_b64
+                    img_range.style.display = 'block'
+                    
+                if chart_power_b64:
+                    img_power = document.getElementById('chart-power')
+                    img_power.src = 'data:image/png;base64,' + chart_power_b64
+                    img_power.style.display = 'block'
+                    
+                document.getElementById('chart-placeholder-text').style.display = 'none'
+            except Exception as e:
+                import sys
+                print("Error calculating:", str(e))
+                # Optional: log to browser console
+                import js
+                js.console.error("PyScript Error:", str(e))
+                js.alert(f"Calculation error: {e}")
+
+        # Run on load
+        on_load()
+    </script>
+</body>
+</html>
