@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2-Stage Launch Vehicle Gravity Turn Simulation</title>
+
+    <!-- PyScript setup -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary: #c0392b;
+            --secondary: #8e44ad;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #dddddd;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        h2 {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 2px solid var(--secondary);
+            padding-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: var(--secondary);
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .result-card {
+            background-color: #f9fbfa;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .result-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: var(--secondary);
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 3px;
+        }
+        .data-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .data-value {
+            font-weight: bold;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .chart-card {
+            background: #eaeaea;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+        }
+        img.plot-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>2-Stage Launch Vehicle Gravity Turn Simulation</h1>
+        <p style="color: var(--text-muted);">Configure rocket parameters to simulate the trajectory and performance.</p>
+    </header>
+
+    <div class="container">
+        <!-- INPUT PANEL -->
+        <div class="panel" style="flex: 0 0 320px;">
+            <h2>Vehicle Parameters</h2>
+            <form id="simForm">
+                <div class="form-group">
+                    <label for="m01">Lift-off Mass (kg)</label>
+                    <input type="number" id="m01" value="120000" step="1000" required>
+                </div>
+                <div class="form-group">
+                    <label for="n">Mass Ratio (n)</label>
+                    <input type="number" id="n" value="5" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="Isp1">Stage 1 Specific Impulse (s)</label>
+                    <input type="number" id="Isp1" value="320" step="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="Isp2">Stage 2 Specific Impulse (s)</label>
+                    <input type="number" id="Isp2" value="350" step="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="T2W1">Stage 1 T/W Ratio</label>
+                    <input type="number" id="T2W1" value="1.4" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="T2W2">Stage 2 T/W Ratio</label>
+                    <input type="number" id="T2W2" value="1.5" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="CD">Drag Coefficient (Cd)</label>
+                    <input type="number" id="CD" value="0.5" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="D">Rocket Diameter (m)</label>
+                    <input type="number" id="D" value="5" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="hTower">Tower Height (m)</label>
+                    <input type="number" id="hTower" value="110" step="1" required>
+                </div>
+                
+                <button type="button" id="calcBtn" py-click="run_simulation_ui">Run Simulation</button>
+                <div id="loadingMsg" style="display:none; text-align:center; margin-top:10px; font-weight:bold; color:var(--primary);">Integrating... Please wait.</div>
+            </form>
+        </div>
+
+        <!-- OUTPUT PANEL -->
+        <div class="panel">
+            <h2>Simulation Results</h2>
+            <div class="results-grid">
+                
+                <!-- Timing & Environment -->
+                <div class="result-card">
+                    <h3>Timing & Environment</h3>
+                    <div class="data-row"><span class="data-label">Stage 1 Burn Time:</span> <span class="data-value" id="out-tburn1">--- s</span></div>
+                    <div class="data-row"><span class="data-label">Stage 2 Burn Time:</span> <span class="data-value" id="out-tburn2">--- s</span></div>
+                    <div class="data-row"><span class="data-label">Total Burn Time (tf):</span> <span class="data-value" id="out-tf">--- s</span></div>
+                    <div class="data-row"><span class="data-label">Max Dynamic Pressure (Q):</span> <span class="data-value" id="out-qmax">--- Pa</span></div>
+                    <div class="data-row"><span class="data-label">Altitude at Max Q:</span> <span class="data-value" id="out-h-qmax">--- m</span></div>
+                </div>
+
+                <!-- Final State -->
+                <div class="result-card">
+                    <h3>Final State (at tf)</h3>
+                    <div class="data-row"><span class="data-label">Final Velocity:</span> <span class="data-value" id="out-v-final">--- m/s</span></div>
+                    <div class="data-row"><span class="data-label">Final Altitude:</span> <span class="data-value" id="out-h-final">--- m</span></div>
+                    <div class="data-row"><span class="data-label">Downrange Travel:</span> <span class="data-value" id="out-range-final">--- m</span></div>
+                    <div class="data-row"><span class="data-label">Flight Path Angle:</span> <span class="data-value" id="out-gamma-final">--- deg</span></div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="result-card">
+                    <h3>Performance Metrics</h3>
+                    <div class="data-row"><span class="data-label">Ideal Delta-V:</span> <span class="data-value" id="out-ideal-dv">--- m/s</span></div>
+                    <div class="data-row"><span class="data-label">Velocity Efficiency:</span> <span class="data-value" id="out-vel-eff">--- %</span></div>
+                    <div class="data-row"><span class="data-label">Drag Loss:</span> <span class="data-value" id="out-drag-loss">--- m/s</span></div>
+                    <div class="data-row"><span class="data-label">Gravity Loss:</span> <span class="data-value" id="out-grav-loss">--- m/s</span></div>
+                    <div class="data-row"><span class="data-label">Total Losses:</span> <span class="data-value" id="out-total-loss">--- m/s</span></div>
+                </div>
+
+            </div>
+            
+            <!-- Charts Area -->
+            <div class="chart-grid">
+                <div class="chart-card">
+                    <img id="chart-vel" class="plot-img" src="" alt="Velocity Chart">
+                    <div id="ph-vel" style="color:#888; padding:40px 0;"><em>Run simulation to view Velocity profile</em></div>
+                </div>
+                <div class="chart-card">
+                    <img id="chart-alt" class="plot-img" src="" alt="Altitude Chart">
+                    <div id="ph-alt" style="color:#888; padding:40px 0;"><em>Run simulation to view Altitude profile</em></div>
+                </div>
+                <div class="chart-card">
+                    <img id="chart-q" class="plot-img" src="" alt="Dynamic Pressure Chart">
+                    <div id="ph-q" style="color:#888; padding:40px 0;"><em>Run simulation to view Dynamic Pressure</em></div>
+                </div>
+                <div class="chart-card">
+                    <img id="chart-gamma" class="plot-img" src="" alt="Flight Path Angle Chart">
+                    <div id="ph-gamma" style="color:#888; padding:40px 0;"><em>Run simulation to view Flight Path Angle</em></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <py-config>
+        packages = ["numpy", "scipy", "matplotlib"]
+        
+        [[fetch]]
+        files = ["./gravity_turn_engine.py"]
+    </py-config>
+
+    <script type="py">
+        from pyscript import document, window
+        from gravity_turn_engine import run_simulation
+        import asyncio
+
+        def get_val(id):
+            return float(document.getElementById(id).value)
+
+        def set_text(id, value):
+            document.getElementById(id).textContent = value
+
+        def set_img(img_id, ph_id, base64_str):
+            if base64_str:
+                img_element = document.getElementById(img_id)
+                img_element.src = f"data:image/png;base64,{base64_str}"
+                img_element.style.display = "block"
+                document.getElementById(ph_id).style.display = "none"
+
+        async def run_simulation_ui(event):
+            btn = document.getElementById('calcBtn')
+            loading = document.getElementById('loadingMsg')
+            
+            btn.disabled = True
+            loading.style.display = 'block'
+            
+            # Yield control to the browser to update UI before heavy computation
+            await asyncio.sleep(0.1)
+            
+            try:
+                # Gather inputs
+                kwargs = {
+                    'm01': get_val('m01'),
+                    'n': get_val('n'),
+                    'Isp1': get_val('Isp1'),
+                    'Isp2': get_val('Isp2'),
+                    'T2W1': get_val('T2W1'),
+                    'T2W2': get_val('T2W2'),
+                    'CD': get_val('CD'),
+                    'D': get_val('D'),
+                    'hTower': get_val('hTower')
+                }
+                
+                # Run the simulation locally via Pyodide
+                results, charts = run_simulation(**kwargs)
+                
+                # Update UI Results
+                set_text('out-tburn1', f"{results['tburn1']:.1f} s")
+                set_text('out-tburn2', f"{results['tburn2']:.1f} s")
+                set_text('out-tf', f"{results['tf']:.1f} s")
+                set_text('out-qmax', f"{results['max_q']:.0f} Pa")
+                set_text('out-h-qmax', f"{results['h_max_q']:.0f} m")
+
+                set_text('out-v-final', f"{results['v_final']:.1f} m/s")
+                set_text('out-h-final', f"{results['h_final']:.1f} m")
+                set_text('out-range-final', f"{results['range_final']:.1f} m")
+                set_text('out-gamma-final', f"{results['gamma_final']:.2f} deg")
+
+                set_text('out-ideal-dv', f"{results['ideal_dv']:.1f} m/s")
+                set_text('out-vel-eff', f"{results['vel_eff']:.1f} %")
+                set_text('out-drag-loss', f"{results['drag_loss']:.1f} m/s")
+                set_text('out-grav-loss', f"{results['grav_loss']:.1f} m/s")
+                set_text('out-total-loss', f"{results['total_loss']:.1f} m/s")
+                
+                # Update charts
+                set_img('chart-vel', 'ph-vel', charts['chart_vel'])
+                set_img('chart-alt', 'ph-alt', charts['chart_alt'])
+                set_img('chart-q', 'ph-q', charts['chart_q'])
+                set_img('chart-gamma', 'ph-gamma', charts['chart_gamma'])
+                
+            except Exception as e:
+                window.alert(f"Simulation Error: {str(e)}")
+            finally:
+                btn.disabled = False
+                loading.style.display = 'none'
+    </script>
+</body>
+</html>
